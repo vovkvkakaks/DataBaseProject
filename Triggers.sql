@@ -72,3 +72,47 @@ END //
 DELIMITER ;
 
 
+DELIMITER //
+
+CREATE TRIGGER update_customer_discount
+AFTER INSERT ON SaleOrder
+FOR EACH ROW
+BEGIN
+    DECLARE total_spent DECIMAL(10, 2);
+    DECLARE new_disc_id INTEGER;
+    
+    -- Calculate the total spending of the customer
+    SELECT SUM(total_price) INTO total_spent
+    FROM SaleOrder
+    WHERE cus_id = NEW.cus_id;
+    
+    -- Determine the appropriate discount level
+    IF total_spent >= (
+        SELECT MAX(sum_to_get)
+        FROM Discount
+    ) THEN
+        SET new_disc_id = (
+            SELECT disc_id
+            FROM Discount
+            WHERE sum_to_get = (
+                SELECT MAX(sum_to_get)
+                FROM Discount
+            )
+        );
+    ELSE
+        SET new_disc_id = (
+            SELECT disc_id
+            FROM Discount
+            WHERE sum_to_get <= total_spent
+            ORDER BY sum_to_get DESC
+            LIMIT 1
+        );
+    END IF;
+    
+    -- Update the Customer table with the new discount level
+    UPDATE Customer
+    SET disc_id = new_disc_id
+    WHERE cus_id = NEW.cus_id;
+END //
+
+DELIMITER ;
