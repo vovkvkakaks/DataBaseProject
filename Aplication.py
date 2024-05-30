@@ -5,7 +5,8 @@ import sqlalchemy
 import re
 import pandas as pd
 from sqlalchemy import func
-
+from datetime import datetime
+import random
 
 
 engine = create_engine('mysql+pymysql://root@localhost/musicshop')
@@ -31,7 +32,7 @@ class DeliveryMethod(Base):
     __tablename__ = 'delivery_method'
 
     del_method_id = Column(Integer, primary_key=True)
-    additional_price = Column(Numeric(10, 2), nullable=False)
+    aditional_price = Column(Numeric(10, 2), nullable=False)
     name_ = Column(String(10), nullable=False)
     time_for_del = Column(String(10), nullable=False)
 
@@ -120,7 +121,7 @@ class Delivery(Base):
     __tablename__ = 'Delivery'
 
     delivery_id = Column(Integer, primary_key=True)
-    delivery_address = Column(String(40), nullable=False)
+    delivery_adres = Column(String(40), nullable=False)
     delivery_status = Column(String(10), nullable=False)
     sale_id = Column(Integer, ForeignKey('SaleOrder.sale_id'), nullable=False)
     del_method_id = Column(Integer, ForeignKey('delivery_method.del_method_id'), nullable=False)
@@ -130,6 +131,53 @@ class Delivery(Base):
     delivery_method = relationship("DeliveryMethod")
     delivery_company = relationship("DeliveryCompany")
 
+class Person:
+    def __init__(self):
+        self.__name = ""
+        self.__surname = ""
+        self.__phone_no = ""
+        self.__address = ""
+        self.__disc_id = 1
+        self.__ccus_id = None
+
+    def get_cus_id(self):
+        return self.__ccus_id
+    
+    def get_name(self):
+        return self.__name
+
+    def get_surname(self):
+        return self.__surname
+
+    def get_phone_no(self):
+        return self.__phone_no
+
+    def get_address(self):
+        return self.__address
+
+    def get_disc_id(self):
+        return self.__disc_id
+    
+    def set_cus_id(self,cus_id):
+        self.__ccus_id = cus_id
+
+    def set_name(self, name):
+        self.__name = name
+
+    def set_surname(self, surname):
+        self.__surname = surname
+
+    def set_phone_no(self, phone_no):
+        self.__phone_no = phone_no
+
+    def set_address(self, address):
+        self.__address = address
+
+    def set_disc_id(self, disc_id):
+        self.__disc_id = disc_id
+
+person = Person()
+
 def validate_input(prompt, pattern, example):
     while True:
         value = input(prompt)
@@ -138,18 +186,37 @@ def validate_input(prompt, pattern, example):
         else:
             print(f"Invalid input. Example of valid input: {example}")
 
+def fetch_cus_id(name, surname, phone_no, address):
+    # Query the database to find the customer with matching details
+    customer = session.query(Customer).filter_by(
+        name_=name, surname=surname, phone_no=phone_no, address=address).first()
+
+    if customer:
+        return customer.cus_id  # Return the cus_id if a customer is found
+    else:
+        return None  # Return None if no matching customer is found
+
 # Registration function
 def register_customer():
     name = validate_input("Enter your name: ", r'^[A-Za-z]+$', "John")
+    person.set_name(name)
     surname = validate_input("Enter your surname: ", r'^[A-Za-z]+$', "Doe")
+    person.set_surname(surname)
     phone_no = validate_input("Enter your phone number (e.g., 123-456-7890): ", r'^\d{3}-\d{3}-\d{4}$', "123-456-7890")
+    person.set_phone_no(phone_no)
     address = validate_input("Enter your address: ", r'^[A-Za-z0-9\s,]+$', "123 Main St")
+    person.set_phone_no(phone_no)
 
     new_customer = Customer(name_=name, surname=surname, phone_no=phone_no, address=address, disc_id=1)
 
     session.add(new_customer)
     session.commit()
-
+    ccus_id = fetch_cus_id(name, surname, phone_no, address)
+    if ccus_id is None:
+        print("Customer not found in the database.")
+        return None
+    
+    person.set_cus_id(ccus_id)
     print("Registration successful!")
 
 def show_instruments():
@@ -190,39 +257,154 @@ def get_instrument_id(name):
     
 def show_total_price(tran_id):
     total = session.query(func.sum(SaleInstr.total_price)).filter_by(tran_id=tran_id).scalar()
-    print(f"Total price for transaction {tran_id}: {total}")
+    print(f"Total price for transaction : {total}")
     return total
+
+def create_new_transaction():
+    tran_id = session.query(func.max(SaleInstr.tran_id)).scalar()
+    tran_id = 1 if tran_id is None else tran_id + 1
+    total_price = 0
+
+    while True:
+        name = validate_input("Enter the instrument name: ", r'^[A-Za-z\s]+$', "Invalid input. Please enter a valid instrument name.")
+        inst_id = get_instrument_id(name)
+        if not inst_id:
+            continue
+        amount = int(validate_input("Enter the amount: ", r'^\d+$', "Invalid input. Please enter a valid amount."))
+        total_price += insert_sale_instr(tran_id, inst_id, amount)
+        
+        show_total_price(tran_id)
+        
+        choice = validate_input("Choose an option: 'Resign and comeback to menu', 'Order more', 'Continue order process': ", r'^(Resign and comeback to menu|Order more|Continue order process)$', "Invalid input. Please choose a valid option.")
+        if choice == 'Resign and comeback to menu':
+            session.query(SaleInstr).filter_by(tran_id=tran_id).delete()
+            session.commit()
+            print("Transaction cancelled.")
+            break
+        elif choice == 'Order more':
+            continue
+        elif choice == 'Continue order process':
+            payment_methods = session.query(Payment).all()
+            print("Payment methods:")
+            for method in payment_methods:
+                print(method.pay_method)
+            chosen_method = validate_input("Choose a payment method : ", r'^(Bank Transfer|PayPal||Credit Card)$', "Invalid input. Please choose a valid payment method.")
+            payment_id = session.query(Payment.payment_id).filter(Payment.pay_method == chosen_method).scalar()
+            if not payment_id:
+                print("Payment method not found.")
+                continue
+            ccus_id = person.get_cus_id()  # Implement this function to fetch emp_no
+            
+            # Get current date and time
+            current_date = datetime.now().date()
+            current_time = datetime.now().time()
+            
+            # Create a new SaleOrder instance and insert it into the database
+            new_order = SaleOrder(tran_id=tran_id, date_s=current_date, time_s=current_time, total_price=total_price, payment_id=payment_id, cus_id=ccus_id)
+            session.add(new_order)
+            session.commit()
+            
+            delivery_methods = session.query(DeliveryMethod).all()
+            print("Delivery methods:")
+            for method in delivery_methods:
+                print(f"Name: {method.name_}, Time for delivery: {method.time_for_del}, Additional Price: {method.aditional_price}")
+            chosen_method_name = validate_input("Choose a delivery method: ", r'^(Standard|Express|Inpost)$', "Invalid input. Please choose a valid delivery method.")
+            chosen_method = session.query(DeliveryMethod).filter(DeliveryMethod.name_ == chosen_method_name).first()
+            if chosen_method:
+                del_method_id = chosen_method.del_method_id
+            else:
+                print("Delivery method not found.")
+                continue
+            sale_order = session.query(SaleOrder).filter_by(tran_id=tran_id).first()
+            if not sale_order:
+                print("SaleOrder not found.")
+                return
+
+            # Take a random emp_no from all DeliveryCompany
+            delivery_companies = session.query(DeliveryCompany).all()
+            if not delivery_companies:
+                print("No delivery companies found.")
+                return
+            random_delivery_company = random.choice(delivery_companies)
+            emp_no = random_delivery_company.emp_no
+
+            # Get del_method_id from the previously chosen delivery method
+            if not del_method_id:
+                print("Delivery method not found.")
+                return
+
+            # Ask for delivery address
+            delivery_adress = validate_input("Enter delivery address: ", r'^[A-Za-z0-9\s,]+$', "123 Main St")
+
+            # Insert new row into the Delivery table
+            new_delivery = Delivery(delivery_adres=delivery_adress, delivery_status='registered', sale_id=sale_order.sale_id, del_method_id=del_method_id, emp_no=emp_no)
+            session.add(new_delivery)
+            session.commit()
+            
+            print('Your order is succesfuly regestrated')
+            
+            break
+
+def show_discount_card_info():
+    # Get the list of available customer IDs from the Customer table
+    available_cus_ids = [cus.cus_id for cus in session.query(Customer).all()]
+
+    # Construct the pattern for validating customer IDs
+    pattern = '^(' + '|'.join(str(cus_id) for cus_id in available_cus_ids) + ')$'
+
+    # Get the customer ID using validate_input with the constructed pattern
+    cus_id = validate_input("Enter the customer ID: ", pattern, "Invalid customer ID. Please enter a valid customer ID.")
+
+    # Query the Customer table to retrieve the customer's discount ID
+    customer = session.query(Customer).filter_by(cus_id=cus_id).first()
+
+    # Check if the customer exists
+    if customer:
+        # Get the discount ID for the customer
+        discount_id = customer.disc_id
+
+        # Query the Discount table to retrieve the discount card information for the customer's discount ID
+        discount_card = session.query(Discount).filter_by(disc_id=discount_id).first()
+
+    print("Showing list of instruments...")
+    # Check if the discount card information exists for the provided customer ID
+    if discount_card:
+        # Display the discount card information
+        print("Discount Card Information:")
+        print(f"Customer ID: {cus_id}")
+        print(f"Discount Percentage: {discount_card.dis_amount * 100} %")
+        print(f"Name of a card: {discount_card.name_}")
+    else:
+        print("Discount card information not found for the provided customer ID.")
+
 
 def print_menu():
     print("Welcome to the Music Shop!")
-    print("1. Register")
-    print("2. Show list of instruments")
-    print("3. Make an order")
-    print("4. Show current discount card")
-    print("5. Exit")
+    print("1. Show list of instruments")
+    print("2. Make an order")
+    print("3. Show current discount card")
+    print("4. Exit")
 
 def main():
     while True:
+        print("Hi,first of all complete registration:)")
+        register_customer()
         print_menu()
         choice = input("Enter your choice: ")
-
         if choice == "1":
-           register_customer()
-        elif choice == "2":
-            print("Showing list of instruments...")
             show_instruments()
-        elif choice == "3":
-            
+        elif choice == "2":
+            create_new_transaction()
             print("Making an order...")
-        elif choice == "4":
-            
+        elif choice == "3":
             print("Showing current discount card...")
-        elif choice == "5":
+            show_discount_card_info()
+        elif choice == "4":
             print("Exiting...")
             break
         else:
             print("Invalid choice. Please try again.")
-get_instrument_id('Buffet Clarinet')
+
 if __name__ == "__main__":
     main()
 
