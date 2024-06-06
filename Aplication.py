@@ -386,9 +386,9 @@ def print_menu():
     print("4. Exit")
 
 def main():
+    register_customer()
     while True:
         print("Hi,first of all complete registration:)")
-        register_customer()
         print_menu()
         choice = input("Enter your choice: ")
         if choice == "1":
