@@ -176,6 +176,26 @@ class Person:
     def set_disc_id(self, disc_id):
         self.__disc_id = disc_id
 
+class InstrumentSalesView(Base):
+    __tablename__ = 'InstrumentSalesRanking'
+    __table_args__ = {'autoload_with': engine}
+
+    Inst_id = Column(Integer, primary_key=True)
+    ins_name = Column(String(255))
+    total_amount_sold = Column(Integer)
+    sales_rank = Column(Integer)
+
+def show_instrument_sales_view():
+    results = session.query(InstrumentSalesView).all()
+
+    if results:
+        print(f"{'Instrument ID':<15}{'Instrument Name':<30}{'Total Amount Sold':<20}{'Sales Rank':<10}")
+        print("="*75)
+        for row in results:
+            print(f"{row.Inst_id:<15}{row.ins_name:<30}{row.total_amount_sold:<20}{row.sales_rank:<10}")
+    else:
+        print("No data available in the view.")
+
 person = Person()
 
 def validate_input(prompt, pattern, example):
@@ -366,7 +386,6 @@ def show_discount_card_info():
         # Query the Discount table to retrieve the discount card information for the customer's discount ID
         discount_card = session.query(Discount).filter_by(disc_id=discount_id).first()
 
-    print("Showing list of instruments...")
     # Check if the discount card information exists for the provided customer ID
     if discount_card:
         # Display the discount card information
@@ -383,14 +402,15 @@ def print_menu():
     print("1. Show list of instruments")
     print("2. Make an order")
     print("3. Show current discount card")
-    print("4. Exit")
+    print("4. Show instrument ranking")
+    print("5. Exit")
 
 def main():
+    print("Hi,first of all complete registration:)")
     register_customer()
     while True:
-        print("Hi,first of all complete registration:)")
         print_menu()
-        choice = input("Enter your choice: ")
+        choice = validate_input("Enter your choice: ", r'^(1|2|3|4|5)$', 'Choose option from 1- 5')
         if choice == "1":
             show_instruments()
         elif choice == "2":
@@ -400,10 +420,11 @@ def main():
             print("Showing current discount card...")
             show_discount_card_info()
         elif choice == "4":
+            print("Showing instrument ranking...")
+            show_instrument_sales_view()
+        elif choice == "5":
             print("Exiting...")
             break
-        else:
-            print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
     main()
