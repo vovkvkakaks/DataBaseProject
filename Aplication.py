@@ -14,7 +14,7 @@ Base = sqlalchemy.orm.declarative_base()
 Session = sessionmaker(bind=engine)
 session = Session()
 
-#Database tables as Python classes
+
 class Brand(Base):
     __tablename__ = 'brand'
 
@@ -185,6 +185,8 @@ class InstrumentSalesView(Base):
     total_amount_sold = Column(Integer)
     sales_rank = Column(Integer)
 
+person = Person()
+
 def show_instrument_sales_view():
     results = session.query(InstrumentSalesView).all()
 
@@ -195,8 +197,6 @@ def show_instrument_sales_view():
             print(f"{row.Inst_id:<15}{row.ins_name:<30}{row.total_amount_sold:<20}{row.sales_rank:<10}")
     else:
         print("No data available in the view.")
-
-person = Person()
 
 def validate_input(prompt, pattern, example):
     while True:
@@ -216,13 +216,21 @@ def fetch_cus_id(name, surname, phone_no, address):
     else:
         return None  # Return None if no matching customer is found
 
-# Registration function
+def get_cus_info(client_no):
+    # Query the database to find the customer with matching details
+    customer = session.query(Customer).filter_by(cus_id = client_no).first()
+
+    if customer:
+        return customer.name_, customer.surname, customer.phone_no, customer.address, customer.disc_id 
+    else:
+        return None  # Return None if no matching customer is found    
+    
 def register_customer():
     name = validate_input("Enter your name: ", r'^[A-Za-z]+$', "John")
     person.set_name(name)
     surname = validate_input("Enter your surname: ", r'^[A-Za-z]+$', "Doe")
     person.set_surname(surname)
-    phone_no = validate_input("Enter your phone number (e.g., 123-456-7890): ", r'^\d{3}-\d{3}-\d{4}$', "123-456-7890")
+    phone_no = '+48-' + validate_input("Enter your phone number (e.g., 123-456-789): ", r'^\d{3}-\d{3}-\d{3}$', "123-456-7890")
     person.set_phone_no(phone_no)
     address = validate_input("Enter your address: ", r'^[A-Za-z0-9\s,]+$', "123 Main St")
     person.set_phone_no(phone_no)
@@ -237,22 +245,32 @@ def register_customer():
         return None
     
     person.set_cus_id(ccus_id)
-    print("Registration successful!")
+
+def loggining_customer():
+       # Get the list of available customer IDs from the Customer table
+    available_cus_ids = [cus.cus_id for cus in session.query(Customer).all()]
+
+    # Construct the pattern for validating customer IDs
+    pattern = '^(' + '|'.join(str(cus_id) for cus_id in available_cus_ids) + ')$'
+
+    client_no = validate_input("Please enter your customer id: ", pattern, "There is no person with such customer id" )
+
+    name, surname, phone, address, disc = get_cus_info(client_no)
+
+    person.set_cus_id(client_no), person.set_name(name), person.set_surname(surname), person.set_phone_no(phone), person.set_address(address), person.set_disc_id(disc)
+
+    return
 
 def show_instruments():
-    # Define the SQL query to fetch the instruments data
-    query = """
-    SELECT ins_name AS 'Instrument Name', amount_on_store AS 'Amount on Store', price AS 'Price'
-    FROM Instrument
-    WHERE amount_on_store > 0;
-    """
-    
-    # Execute the query and fetch the data into a pandas DataFrame
-    with engine.connect() as connection:
-        df = pd.read_sql(query, connection)
-    
-    # Display the DataFrame
-    print(df)
+    results = session.query(Instrument).filter(Instrument.amount_on_store > 0).all()
+
+    if results:
+        print(f"{'Instrument Number':<15}{'Instrument Name':<30}{'Amount On Store':<20}{'Price':<10}")
+        print("="*75)
+        for row in results:
+            print(f"{row.Inst_id:<15}{row.ins_name:<30}{row.amount_on_store:<20}{row.price:<10}")
+    else:
+        print("No data available in the view.")
 
 def insert_sale_instr(tran_id, inst_id, amount):
     instrument = session.query(Instrument).filter_by(Inst_id=inst_id).first()
@@ -286,34 +304,37 @@ def create_new_transaction():
     total_price = 0
 
     while True:
-        name = validate_input("Enter the instrument name: ", r'^[A-Za-z\s]+$', "Invalid input. Please enter a valid instrument name.")
-        inst_id = get_instrument_id(name)
-        if not inst_id:
-            continue
+        show_instruments()
+        available_inst_ids = [inst.Inst_id for inst in session.query(Instrument).all()]
+
+        pattern = '^(' + '|'.join(str(inst_id) for inst_id in available_inst_ids) + ')$'
+
+        inst_no = validate_input("Enter the instrument number which u want to order: ", pattern, "Invalid input. Please enter a valid instrument number.")
+        inst_id = inst_no
         amount = int(validate_input("Enter the amount: ", r'^\d+$', "Invalid input. Please enter a valid amount."))
         total_price += insert_sale_instr(tran_id, inst_id, amount)
         
         show_total_price(tran_id)
         
-        choice = validate_input("Choose an option: 'Resign and comeback to menu', 'Order more', 'Continue order process': ", r'^(Resign and comeback to menu|Order more|Continue order process)$', "Invalid input. Please choose a valid option.")
-        if choice == 'Resign and comeback to menu':
+        choice = validate_input("Choose an option: '1)Resign and comeback to menu', '2)Order more', '3)Continue order process': ", r'^(1|2|3)$', "Invalid input. Please choose a valid option.")
+        if choice == '1':
             session.query(SaleInstr).filter_by(tran_id=tran_id).delete()
             session.commit()
             print("Transaction cancelled.")
             break
-        elif choice == 'Order more':
+        elif choice == '2':
             continue
-        elif choice == 'Continue order process':
+        elif choice == '3':
             payment_methods = session.query(Payment).all()
             print("Payment methods:")
             for method in payment_methods:
                 print(method.pay_method)
-            chosen_method = validate_input("Choose a payment method : ", r'^(Bank Transfer|PayPal||Credit Card)$', "Invalid input. Please choose a valid payment method.")
-            payment_id = session.query(Payment.payment_id).filter(Payment.pay_method == chosen_method).scalar()
+            chosen_method = validate_input("Choose a payment method 1)Bank Transfer 2)PayPal 3)Credit Card : ", r'^(1|2|3)$', "Invalid input. Please choose option(1-3).")
+            payment_id = chosen_method
             if not payment_id:
                 print("Payment method not found.")
                 continue
-            ccus_id = person.get_cus_id()  # Implement this function to fetch emp_no
+            ccus_id = person.get_cus_id()  
             
             # Get current date and time
             current_date = datetime.now().date()
@@ -328,13 +349,9 @@ def create_new_transaction():
             print("Delivery methods:")
             for method in delivery_methods:
                 print(f"Name: {method.name_}, Time for delivery: {method.time_for_del}, Additional Price: {method.aditional_price}")
-            chosen_method_name = validate_input("Choose a delivery method: ", r'^(Standard|Express|Inpost)$', "Invalid input. Please choose a valid delivery method.")
-            chosen_method = session.query(DeliveryMethod).filter(DeliveryMethod.name_ == chosen_method_name).first()
-            if chosen_method:
-                del_method_id = chosen_method.del_method_id
-            else:
-                print("Delivery method not found.")
-                continue
+            chosen_method_name = validate_input("Choose a delivery method: 1)Standard|2)Express|3)Inpost ", r'^(1|2|3)$', "Invalid input. Please choose option(1-3).")
+            del_method_id = chosen_method_name
+
             sale_order = session.query(SaleOrder).filter_by(tran_id=tran_id).first()
             if not sale_order:
                 print("SaleOrder not found.")
@@ -396,37 +413,117 @@ def show_discount_card_info():
     else:
         print("Discount card information not found for the provided customer ID.")
 
+def registration_menu():
+    while True:
+        print("Welcome to the Music Shop!")
+        print("Complete logging:)")
+        choice = validate_input("Registration/logging (1/2)", r'^(1|2)$', 'Please choose 1(Registration) or 2(Logging)')
+        if choice == '1':
+            register_customer()
+            print("Registration completted succsesfully")
+            break
+        elif choice == '2':
+            loggining_customer()
+            print("Loggining completted succsesfully")
+            break
+
+def add_invoice(path):
+    dot_index = path.rfind('.')
+    extension = path[dot_index + 1:]
+    
+    if extension == 'xlsx':
+        df = pd.read_excel(path)
+        session = Session()  # Assuming you have defined and configured your SQLAlchemy session
+        
+        for index, row in df.iterrows():
+            name = row['ins_name']
+            amount = row['amount']
+            price = row['price']
+            brand_name = row['name_of_brand']
+            type_name = row['type_name']
+            category_name = row.get('category_name', None)  # Optional category_name
+            
+            instrument = session.query(Instrument).filter_by(ins_name=name).first()
+            
+            if instrument:
+                instrument.amount_on_store += amount
+            else:
+                brand = session.query(Brand).filter_by(name_of_brand=brand_name).first()
+                
+                if not brand:
+                    brand = Brand(name_of_brand=brand_name, rating=5)
+                    session.add(brand)
+                    session.commit()  # Commit brand creation
+                
+                type = session.query(Type).filter_by(type_name=type_name).first()
+                
+                if not type:
+                    if category_name:
+                        category = session.query(Category).filter_by(categ_name=category_name).first()
+                        
+                        if not category:
+                            category = Category(categ_name=category_name)
+                            session.add(category)
+                            session.commit()  # Commit category creation
+                        
+                        type = Type(type_name=type_name, category_id=category.category_id)
+                        session.add(type)
+                    else:
+                        type = Type(type_name=type_name)
+                        session.add(type)
+                    
+                    session.commit()  # Commit type creation
+                
+                # Now we should have the type_id
+                new_inst = Instrument(
+                    price=price,
+                    ins_name=name,
+                    amount_on_store=amount,
+                    brand_id=brand.brand_id,
+                    type_id=type.type_id  # Assign the fetched or created type_id
+                )
+                session.add(new_inst)
+            
+            # Batch commit for better performance
+            if index % 100 == 0:
+                session.commit()
+        
+        session.commit()  # Final commit for any remaining changes
+        session.close()   # Close the session
 
 def print_menu():
-    print("Welcome to the Music Shop!")
-    print("1. Show list of instruments")
-    print("2. Make an order")
-    print("3. Show current discount card")
-    print("4. Show instrument ranking")
+    print("1. Make an order")
+    print("2. Show current discount card")
+    print("3. Show instrument ranking")
+    print("4. Log out")
     print("5. Exit")
 
 def main():
-    print("Hi,first of all complete registration:)")
-    register_customer()
+    registration_menu()
     while True:
         print_menu()
-        choice = validate_input("Enter your choice: ", r'^(1|2|3|4|5)$', 'Choose option from 1- 5')
+        choice = validate_input("Enter your choice: ", r'^(1|2|3|4|5|6)$', 'Choose option from 1- 4')
         if choice == "1":
-            show_instruments()
-        elif choice == "2":
             create_new_transaction()
-            print("Making an order...")
-        elif choice == "3":
+            print("Order completed")
+        elif choice == "2":
             print("Showing current discount card...")
             show_discount_card_info()
-        elif choice == "4":
+        elif choice == "3":
             print("Showing instrument ranking...")
             show_instrument_sales_view()
+        elif choice == "4":
+            registration_menu()
         elif choice == "5":
             print("Exiting...")
             break
+        elif choice =="6":
+            add_invoice('Instrument_Invoice.xlsx')
 
 if __name__ == "__main__":
     main()
+
+
+
 
 

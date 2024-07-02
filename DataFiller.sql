@@ -75,17 +75,17 @@ INSERT INTO Discount (dis_amount, sum_to_get, name_) VALUES
 (0.25, 4500.00, 'Diamond Membership');
 
 -- Insert data into Customer table
-INSERT INTO Customer (name_, surname, phone_no, address, disc_id) VALUES
-('John', 'Doe', '123-456-7890', '123 Main St, Springfield', 1),
-('Jane', 'Smith', '234-567-8901', '456 Elm St, Springfield', 1),
-('Michael', 'Johnson', '345-678-9012', '789 Oak St, Springfield', 1),
-('Emily', 'Davis', '456-789-0123', '101 Maple St, Springfield', 1),
-('David', 'Miller', '567-890-1234', '202 Pine St, Springfield', 1),
-('Emma', 'Wilson', '678-901-2345', '303 Birch St, Springfield', 1),
-('Daniel', 'Taylor', '789-012-3456', '404 Cedar St, Springfield', 1),
-('Olivia', 'Anderson', '890-123-4567', '505 Walnut St, Springfield', 1),
-('Matthew', 'Thomas', '901-234-5678', '606 Chestnut St, Springfield', 1),
-('Sophia', 'Moore', '012-345-6789', '707 Ash St, Springfield', 1);
+INSERT INTO Customer (nammusicshope_, surname, phone_no, address, disc_id) VALUES
+('John', 'Doe', '+48-123-456-789', '123 Main St, Springfield', 1),
+('Jane', 'Smith', '+48-234-567-890', '456 Elm St, Springfield', 1),
+('Michael', 'Johnson', '+48-345-678-901', '789 Oak St, Springfield', 1),
+('Emily', 'Davis', '+48-456-789-012', '101 Maple St, Springfield', 1),
+('David', 'Miller', '+48-567-890-123', '202 Pine St, Springfield', 1),
+('Emma', 'Wilson', '+48-678-901-234', '303 Birch St, Springfield', 1),
+('Daniel', 'Taylor', '+48-789-012-345', '404 Cedar St, Springfield', 1),
+('Olivia', 'Anderson', '+48-890-123-456', '505 Walnut St, Springfield', 1),
+('Matthew', 'Thomas', '+48-901-234-567', '606 Chestnut St, Springfield', 1),
+('Sophia', 'Moore', '+48-012-345-678', '707 Ash St, Springfield', 1);
 
 -- Insert data into SaleInstr table without specifying total_price
 -- Insert data into SaleInstr table
